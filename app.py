@@ -1,5 +1,4 @@
 import streamlit as st
-import openai
 from openai import OpenAI
 
 st.title("gpt-4o-mini 체험")
