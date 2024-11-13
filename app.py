@@ -5,7 +5,7 @@ from openai import OpenAI
  
 
 api_key = st.text_input("OpenAI API Key",key="user_api_key", type='password')
-st.session_state.user_api_key
+st.session_state.user_api_key = api_key
 
 client = OpenAI(api_key=api_key)
 
