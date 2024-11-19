@@ -15,5 +15,6 @@ assistant = client.beta.assistants.create(
 
 prompt = st.chat_input("Ask any question")
 
-if prompt:
-    st.write(f"User has sent the following prompt: {prompt}")
+if prompt := st.chat_input("Say something"):
+    messages = st.container(height=300)
+    messages.chat_message("user").write(prompt)
