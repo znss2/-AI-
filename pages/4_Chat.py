@@ -37,10 +37,10 @@ if prompt := st.chat_input("Ask any question"):
         for msg in thread_messages.data[::-1]:
             messages.chat_message(msg.role).write(f"Echo: {msg.content[0].text.value}")
 
-if st.button("Clear"):
-    response = client.beta.threads.delete(thread.id)
-    thread = client.beta.threads.create()
+    if st.button("Clear"):
+        response = client.beta.threads.delete(thread.id)
+        thread = client.beta.threads.create()
 
-if st.button("Exit Chat"):
-    response = client.beta.threads.delete(thread.id)
-    response = client.beta.assistants.delete(assistant.id)
+    if st.button("Exit Chat"):
+        response = client.beta.threads.delete(thread.id)
+        response = client.beta.assistants.delete(assistant.id)
