@@ -11,7 +11,8 @@ st.header("My Chat")
 
 assistant = client.beta.assistants.create(
   instructions="당신은 똑똑한 비서입니다.",
-  model="gpt-4o-mini"
+  model="gpt-4o-mini",
+  tools=[{"type": "code_interpreter"}]
 )
 
 thread = client.beta.threads.create()
