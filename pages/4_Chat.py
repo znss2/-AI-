@@ -14,17 +14,16 @@ assistant = client.beta.assistants.create(
   model="gpt-4o-mini"
 )
 
+thread = client.beta.threads.create()
+
 if prompt := st.chat_input("Ask any question"):
     messages = st.container(height=600)
     messages.chat_message("user").write(prompt)
 
-    thread = client.beta.threads.create(
-    messages=[
-        {
-            "role":"user",
-            "content": prompt
-        }
-    ]
+    new_message = client.beta.threads.messages.create(
+    thread_id = thread.id,
+    role="user",
+    content=prompt
     )
 
     run = client.beta.threads.runs.create_and_poll(
