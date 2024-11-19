@@ -13,8 +13,26 @@ assistant = client.beta.assistants.create(
   model="gpt-4o-mini"
 )
 
-prompt = st.chat_input("Ask any question")
-
-if prompt := st.chat_input("Say something"):
-    messages = st.container(height=300)
+if prompt := st.chat_input("Ask any question"):
+    messages = st.container(height=600)
     messages.chat_message("user").write(prompt)
+
+    thread = client.beta.threads.create(
+    messages=[
+        {
+            "role":"user",
+            "content": messages
+        }
+    ]
+    )
+
+    run = client.beta.threads.runs.create_and_poll(
+    thread_id=thread.id,
+    assistant_id=assistant.id,
+    poll_interval_ms=2000
+    )
+
+    if run.status == 'completed':
+        thread_messages = client.beta.threads.messages.list(thread.id)
+        for msg in thread_messages.data:
+            messages.chat_message("assistant").write(f"Echo: {msg.content[0].text.value}")
