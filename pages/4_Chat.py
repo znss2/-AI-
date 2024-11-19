@@ -1,4 +1,5 @@
 import streamlit as st
+import openai
 
 client = st.session_state.get('openai_client', None)
 if client is None:
