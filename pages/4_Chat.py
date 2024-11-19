@@ -34,6 +34,6 @@ if prompt := st.chat_input("Ask any question"):
     )
 
     if run.status == 'completed':
-        thread_messages = client.beta.threads.messages.list(thread.id)
+        thread_messages = client.beta.threads.messages.list(thread.id, limit = 1)
         for msg in thread_messages.data[::-1]:
             messages.chat_message("assistant").write(f"Echo: {msg.content[0].text.value}")
