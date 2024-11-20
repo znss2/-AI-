@@ -7,7 +7,7 @@ if client is None:
     st.stop()
 
 import requests
-url = "https://www.law.go.kr/학칙공단/국립부경대학교 도서관 규정/(1316,20231227)"
+url = "https://www.pknu.ac.kr/rule/schRegAndRuleList.do"
 
 r = requests.get(url)
 
