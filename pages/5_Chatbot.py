@@ -29,6 +29,8 @@ assistant = client.beta.assistants.create(
 thread = client.beta.threads.create(
   messages=[
     {
+      "role": "user",
+      "content": "부경대학교 도서관 학칙이야",
       "attachments": [{"file_id":my_file.id, "tools":[{"type":"code_interpreter"}] }]
     }
   ]
