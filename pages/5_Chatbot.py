@@ -26,7 +26,13 @@ assistant = client.beta.assistants.create(
   tools=[{"type": "code_interpreter"}]
 )
 
-thread = client.beta.threads.create()
+thread = client.beta.threads.create(
+  messages=[
+    {
+      "attachments": [{"file_id":my_file.id, "tools":[{"type":"code_interpreter"}] }]
+    }
+  ]
+)
 
 st.header("My Chatbot")
 
