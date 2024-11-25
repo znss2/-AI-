@@ -155,7 +155,7 @@ if "chatbot_messages" not in st.session_state:
 for msg in st.session_state.chatbot_messages[1:]:
     show_message(msg)
 
-if prompt := st.chat_input("What is up?"):
+if prompt := st.chat_input("Ask any question"):
     msg = {"role":"user", "content":prompt}
     show_message(msg)
     st.session_state.chatbot_messages.append(msg)
