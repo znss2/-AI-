@@ -65,7 +65,7 @@ with col2:
 for msg in st.session_state.messages:
     show_message(msg)
 
-if prompt := st.chat_input("What is up?"):
+if prompt := st.chat_input("Ask any question"):
     msg = {"role":"user", "content":prompt}
     show_message(msg)
     st.session_state.messages.append(msg)
