@@ -137,44 +137,33 @@ library_rule = ["""국립부경대학교 도서관 규정
 제3조(글로벌정책대학원 모집단위 변경에 따른 경과조치) 이 학칙 시행으로 폐지된 “일본학과” 재적생은 졸업 시까지 동 전공에 재적하는 것으로 본다.
 제4조(다른 규정의 개정) 본교 제 규정의 제명 및 내용 중 “부경대학교”는 “국립부경대학교”로 한다."""]
 
-assistant = client.beta.assistants.create(
-  name="데이터 분석 전문가",
-  instructions="당신은 데이터 분석 전문가입니다.",
-  model="gpt-4o-mini",
-  tools=[{"type": "code_interpreter"}]
-)
+def show_message(msg):
+    with st.chat_message(msg['role']):
+        st.markdown(msg["content"])
 
-thread = client.beta.threads.create(
-  messages=[
-    {
-      "role": "user",
-      "content": "library_rules 리스트를 이용해 질문에 대답해",
-      "tools":[{"type":"code_interpreter"}]
-    }
-  ]
-)
+if "chatbot_messages" not in st.session_state:
+    st.session_state.chatbot_messages = [
+        {"role":"system","content":f"""
+당신은 국립부경대학교 도서관 규정집 챗봇입니다.
+다음의 규정집 내용을 이용해 대답하고, 규정집에 없는 내용은 모른다고 답하세요.
 
-st.header("My Chatbot")
+## 규정집
+{library_rule}        
+"""}
+    ]
 
-if prompt := st.chat_input("Ask any question"):
-    messages = st.container(height=600)
-    messages.chat_message("user").write(prompt)
+for msg in st.session_state.chatbot_messages[1:]:
+    show_message(msg)
 
-    new_message = client.beta.threads.messages.create(
-    thread_id = thread.id,
-    role="user",
-    content=prompt
+if prompt := st.chat_input("What is up?"):
+    msg = {"role":"user", "content":prompt}
+    show_message(msg)
+    st.session_state.chatbot_messages.append(msg)
+
+    response = client.chat.completions.create(
+        model = "gpt-4o-mini",
+        messages = st.session_state.chatbot_messages
     )
-    run = client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=assistant.id)
-
-    run_steps = client.beta.threads.runs.steps.list(
-        thread_id=thread.id,
-        run_id=run.id
-    )
-
-    thread_messages = client.beta.threads.messages.list(thread.id)
-
-    if run.status == 'completed':
-        thread_messages = client.beta.threads.messages.list(thread.id, limit = 1)
-        for msg in thread_messages.data[::-1]:
-            messages.chat_message(msg.role).write(f"Echo: {msg.content[0].text.value}")
+    msg = {"role":"assistant", "content":response.choices[0].message.content}
+    show_message(msg)
+    st.session_state.chatbot_messages.append(msg)
