@@ -1,4 +1,14 @@
 import streamlit as st
+import json
+from lib.tools import generate_image, SCHEMA_GENERATE_IMAGE
+
+TOOL_FUNCTIONS = {
+    "generate_image": generate_image
+}
+
+FUNCTION_TOOLS_SCHEMA = [
+    SCHEMA_GENERATE_IMAGE
+]
 
 client = st.session_state.get('openai_client', None)
 if client is None:
@@ -6,66 +16,135 @@ if client is None:
         st.switch_page("pages/1_Setting.py")
     st.stop()
 
-def generate_img(prompt):
-    response = client.images.generate(
-        model="dall-e-3",
-        prompt=prompt,
-        n=1,
-        size="1024x1024"
-    )
-    return response.data[0].url
+def show_message(msg):
+    if msg['role'] == 'user' or msg['role'] == 'assistant':
+        with st.chat_message(msg['role']):
+            st.markdown(msg["content"])
+
+    elif msg['role'] == 'code':
+        with st.chat_message('assistant'):
+            with st.expander("Show codes"):
+                st.code(msg["content"], language='python')
+
+    elif msg['role'] == 'image_url':
+        with st.chat_message('assistant'):
+            st.markdown(f"![]({msg['content']})")
+
+    elif msg['role'] == 'image_file':
+        with st.chat_message('assistant'):
+            st.image(msg['content'])
 
 st.header("My Chat")
 
-assistant = client.beta.assistants.create(
-  instructions="당신은 똑똑한 비서입니다.",
-  model="gpt-4o-mini",
-  tools=[{"type": "code_interpreter"}]
-)
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-tools = [
-    {
-        "type":"function",
-        "function": {
-            "name":"generate_img",
-            "description":"Dall-E를 이용해 이미지를 생성하고 이미지 파일 이름을 반환.",
-            "parameters": {
-                "type":"object",
-                "properties": {
-                    "prompt": {"type":"string", "description":"image generation prompt"}
-                }
-            }
-        }
-    }
-]
+if "assistant" not in st.session_state:
+    st.session_state.assistant = client.beta.assistants.create(
+        name="Assistant",
+        model="gpt-4o-mini",
+        tools=[{"type":"code_interpreter"}] + FUNCTION_TOOLS_SCHEMA
+    )
 
-thread = client.beta.threads.create()
+if "thread" not in st.session_state:
+    st.session_state.thread = client.beta.threads.create()
 
-if prompt := st.chat_input("Ask any question"):
-    messages = st.container(height=600)
-    messages.chat_message("user").write(prompt)
+col1, col2 = st.columns(2)
 
-    new_message = client.beta.threads.messages.create(
-    thread_id = thread.id,
-    role="user",
-    content=prompt
+with col1:
+    if st.button("Clear"):
+        st.session_state.messages = []
+        del st.session_state.thread
+
+with col2:
+    if st.button("Exit Chat"):
+        st.session_state.messages = []
+        del st.session_state.thread
+        del st.session_state.assistant
+
+for msg in st.session_state.messages:
+    show_message(msg)
+
+if prompt := st.chat_input("What is up?"):
+    msg = {"role":"user", "content":prompt}
+    show_message(msg)
+    st.session_state.messages.append(msg)
+
+    thread = st.session_state.thread
+
+    assistant = st.session_state.assistant
+
+    client.beta.threads.messages.create(
+        thread_id=thread.id,
+        role="user",
+        content=prompt
     )
 
     run = client.beta.threads.runs.create_and_poll(
-    thread_id=thread.id,
-    assistant_id=assistant.id,
-    poll_interval_ms=2000
+        thread_id=thread.id,
+        assistant_id=assistant.id
     )
 
+    while run.status == 'requires_action':
+        tool_calls = run.required_action.submit_tool_outputs.tool_calls
+        tool_outputs = []
+
+        for tool in tool_calls:
+            func_name = tool.function.name
+            kwargs = json.loads(tool.function.arguments)
+            output = None
+
+            if func_name in TOOL_FUNCTIONS:
+                output = TOOL_FUNCTIONS[func_name](**kwargs)
+
+            tool_outputs.append(
+                {
+                    "tool_call_id": tool.id,
+                    "output": str(output)
+                }
+            )
+
+        run = client.beta.threads.runs.submit_tool_outputs_and_poll(
+            thread_id=thread.id,
+            run_id=run.id,
+            tool_outputs=tool_outputs
+        )
+
     if run.status == 'completed':
-        thread_messages = client.beta.threads.messages.list(thread.id, limit = 1)
-        for msg in thread_messages.data[::-1]:
-            messages.chat_message(msg.role).write(f"Echo: {msg.content[0].text.value}")
+        api_response = client.beta.threads.messages.list(
+            thread_id=thread.id,
+            run_id=run.id,
+            order="asc"
+        )
+        for data in api_response.data:
+            for content in data.content:
+                if content.type == 'text':
+                    response = content.text.value
+                    msg = {"role":"assistant","content":response}
 
-    if st.button("Clear"):
-        response = client.beta.threads.delete(thread.id)
-        thread = client.beta.threads.create()
+                elif content.type == 'image_url':
+                    url = content.image_url.url
+                    msg = {"role":"image_url","content":url}
 
-    if st.button("Exit Chat"):
-        response = client.beta.threads.delete(thread.id)
-        response = client.beta.assistants.delete(assistant.id)
+                elif content.type == 'image_file':
+                    file_id = content.image_file.file_id
+                    # load file
+                    image_data = client.files.content(file_id)
+                    msg = {"role":"image_file","content":image_data.read()}
+
+                show_message(msg)
+                st.session_state.messages.append(msg)
+
+    run_steps = client.beta.threads.runs.steps.list(
+        thread_id=thread.id,
+        run_id=run.id,
+        order='asc'
+    )
+    for run_step in run_steps.data:
+        if run_step.step_details.type == 'tool_calls':
+            for tool_call in run_step.step_details.tool_calls:
+                if tool_call.type == 'code_interpreter':
+                    code = tool_call.code_interpreter.input
+                    msg = {"role":"code","content":code}
+                    show_message(msg)
+                    st.session_state.messages.append(msg)
